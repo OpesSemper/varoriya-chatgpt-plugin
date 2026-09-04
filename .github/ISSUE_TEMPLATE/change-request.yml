@@ -1,7 +1,6 @@
 name: Change request
 description: Controlled change to an approved scope, requirement, architecture, security, or release baseline
 title: "[CHANGE] "
-labels: ["type:change", "status:triage"]
 body:
   - type: textarea
     id: baseline

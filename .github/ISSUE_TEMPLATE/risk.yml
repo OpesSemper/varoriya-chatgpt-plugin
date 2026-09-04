@@ -1,7 +1,6 @@
 name: Risk record
 description: Product, delivery, security, privacy, compliance, or operational risk
 title: "[RISK] "
-labels: ["type:risk", "status:triage"]
 body:
   - type: dropdown
     id: severity

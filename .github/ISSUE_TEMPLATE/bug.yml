@@ -1,7 +1,6 @@
 name: Bug report
 description: Reproducible product or engineering defect
 title: "[BUG] "
-labels: ["type:defect", "status:triage"]
 body:
   - type: dropdown
     id: severity

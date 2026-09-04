@@ -1,7 +1,6 @@
 name: Engineering task
 description: Planned implementation, verification, documentation, or release work
 title: "[TASK] "
-labels: ["type:task", "status:backlog"]
 body:
   - type: dropdown
     id: severity

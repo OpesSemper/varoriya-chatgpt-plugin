@@ -1,0 +1,42 @@
+name: Risk record
+description: Product, delivery, security, privacy, compliance, or operational risk
+title: "[RISK] "
+labels: ["type:risk", "status:triage"]
+body:
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity
+      options: ["SEV-0 Critical", "SEV-1 High", "SEV-2 Medium", "SEV-3 Low"]
+    validations:
+      required: true
+  - type: textarea
+    id: statement
+    attributes:
+      label: Risk statement
+      placeholder: "If [cause], then [event] may occur, resulting in [impact]."
+    validations:
+      required: true
+  - type: input
+    id: owner
+    attributes:
+      label: Human risk owner
+    validations:
+      required: true
+  - type: input
+    id: controls
+    attributes:
+      label: ISO/control mapping
+    validations:
+      required: true
+  - type: textarea
+    id: treatment
+    attributes:
+      label: Treatment and verification
+    validations:
+      required: true
+  - type: textarea
+    id: residual
+    attributes:
+      label: Residual risk and approval
+      description: Link authorized human acceptance when the residual risk is retained.

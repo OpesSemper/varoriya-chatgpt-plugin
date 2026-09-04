@@ -1,0 +1,75 @@
+name: Engineering task
+description: Planned implementation, verification, documentation, or release work
+title: "[TASK] "
+labels: ["type:task", "status:backlog"]
+body:
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity
+      options: ["SEV-0 Critical", "SEV-1 High", "SEV-2 Medium", "SEV-3 Low"]
+    validations:
+      required: true
+  - type: input
+    id: phase
+    attributes:
+      label: Phase and milestone
+      placeholder: "Phase 1 / M1"
+    validations:
+      required: true
+  - type: input
+    id: human_owner
+    attributes:
+      label: Human Owner
+      placeholder: "Role and @username"
+    validations:
+      required: true
+  - type: input
+    id: sub_agent
+    attributes:
+      label: Sub-Agent, model, and effort
+      placeholder: "SA-BE / gpt-5.6-terra / high"
+    validations:
+      required: true
+  - type: input
+    id: dependencies
+    attributes:
+      label: Dependencies
+      placeholder: "#12, #15, or None"
+    validations:
+      required: true
+  - type: input
+    id: iso_mapping
+    attributes:
+      label: ISO mapping
+      placeholder: "ISO 29110 SI.3; ISO 27001 A.8.27"
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Required outcome
+      description: State the deliverable and user/security effect.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      placeholder: "- [ ] Given/when/then result\n- [ ] Negative case"
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Required evidence
+      placeholder: "Test report, ADR, traceability row, approval link"
+    validations:
+      required: true
+  - type: checkboxes
+    id: public_safety
+    attributes:
+      label: Public repository safety
+      options:
+        - label: This issue contains no secrets, credentials, personal data, raw prompts, user media, or confidential vendor information.
+          required: true

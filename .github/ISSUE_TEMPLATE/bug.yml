@@ -1,0 +1,42 @@
+name: Bug report
+description: Reproducible product or engineering defect
+title: "[BUG] "
+labels: ["type:defect", "status:triage"]
+body:
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Suspected severity
+      options: ["SEV-0 Critical", "SEV-1 High", "SEV-2 Medium", "SEV-3 Low"]
+    validations:
+      required: true
+  - type: textarea
+    id: observed
+    attributes:
+      label: Observed behavior and impact
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Minimal reproduction
+      description: Use synthetic data only. Do not include secrets, signed URLs, prompts, or user media.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: input
+    id: request_id
+    attributes:
+      label: Sanitized request or trace ID
+  - type: checkboxes
+    id: security
+    attributes:
+      label: Security check
+      options:
+        - label: I confirm this is not a vulnerability report. Security issues must use a private advisory.
+          required: true

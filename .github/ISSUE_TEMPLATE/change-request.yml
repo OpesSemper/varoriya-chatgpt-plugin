@@ -1,0 +1,36 @@
+name: Change request
+description: Controlled change to an approved scope, requirement, architecture, security, or release baseline
+title: "[CHANGE] "
+labels: ["type:change", "status:triage"]
+body:
+  - type: textarea
+    id: baseline
+    attributes:
+      label: Current approved baseline
+    validations:
+      required: true
+  - type: textarea
+    id: change
+    attributes:
+      label: Requested change and rationale
+    validations:
+      required: true
+  - type: textarea
+    id: impact
+    attributes:
+      label: Impact analysis
+      description: Cover scope, schedule, cost, security, privacy, operations, compatibility, and auditability.
+    validations:
+      required: true
+  - type: input
+    id: dependencies
+    attributes:
+      label: Affected issues, ADRs, requirements, tests, and releases
+    validations:
+      required: true
+  - type: input
+    id: approver
+    attributes:
+      label: Required human approver
+    validations:
+      required: true

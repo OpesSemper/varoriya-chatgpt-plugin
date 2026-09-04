@@ -1,6 +1,6 @@
 # Initial issue backlog
 
-Create issues in this order so dependency links use stable issue numbers. Copy each ID into the issue title.
+The logical ID is the stable dependency key; GitHub issue numbers are recorded in [ISSUE_INDEX.md](ISSUE_INDEX.md). Copy each ID into the issue title and dependency field.
 
 | Order | Issue title | Severity | Dependencies | Milestone |
 |---:|---|---:|---|---|

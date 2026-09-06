@@ -39,9 +39,9 @@ Model assignments are execution defaults, not approval authority. Human owners r
 | SEC-002 | Scopes, ownership checks, default deny, and negative auth tests | S0 | SEC-001 | Security Lead | SA-SEC / xhigh |
 | TOOL-001 | Implement eight focused MCP tool contracts | S1 | REQ-001, ARCH-001 | Backend Lead | SA-BE / high |
 | COST-001 | Live quote, signed token, idempotency ledger, and reconciliation | S0 | TOOL-001, SEC-002 | Backend/Finance | SA-BE / high |
-| FILE-001 | Secure upload, MIME/size checks, SSRF and malware controls | S1 | TOOL-001, SEC-002 | Backend/AppSec | SA-BE / high |
+| FILE-001 | Secure upload, MIME/size checks, SSRF and malware controls | S1 | TOOL-001, SEC-002 | Backend/AppSec | SA-SEC / xhigh |
 | OPS-001 | Logging, monitoring, alerts, retention, and incident evidence | S1 | ARCH-001, TOOL-001 | DevOps/SRE | SA-BE / high |
-| PKG-001 | Plugin manifest, app mapping, and generation workflow skill | S1 | TOOL-001, SEC-002 | Product/AI Lead | SA-BE / high |
+| PKG-001 | Plugin manifest, app mapping, and generation workflow skill | S1 | TOOL-001, SEC-002 | Product/AI Lead | SA-DOCS / medium |
 | QA-001 | Unit, integration, auth, abuse, retry, load, and E2E suite | S1 | COST-001, FILE-001 | QA Lead | SA-QA / high |
 | COMP-001 | Requirement-control-test-evidence-release traceability | S1 | REQ-001, QA-001 | ISO SME | SA-DOCS / medium |
 | SUB-001 | Listing, legal URLs, demo, reviewer credentials, and test package | S1 | PKG-001, QA-001, COMP-001 | Product/Legal | SA-DOCS / medium |
@@ -62,3 +62,13 @@ Model assignments are execution defaults, not approval authority. Human owners r
 ## Human-only approvals
 
 Sub-Agents cannot accept residual risk, approve production access, spend credits, publish legal/privacy statements, create/distribute reviewer credentials, release to production, or submit/publish the plugin. Those gates require the named authorized human.
+
+## Implementation checkpoint — 2026-09-06
+
+- SA-SEC (`gpt-5.6-sol`, xhigh): OAuth/authentication boundary, scopes, ownership, cost, quote/idempotency, upload, SSRF, redaction, and fail-closed production controls.
+- SA-BE (`gpt-5.6-terra`, high): typed Varoriya REST adapter and eight MCP tool contracts.
+- SA-QA (`gpt-5.6-luna`, high): direct-source security and contract suite with no skip fallback.
+- SA-DOCS (`gpt-5.6-luna`, medium): plugin package, workflow skill, eval prompts, and local runbook.
+- Main Agent: Streamable HTTP composition, JOSE/JWKS adapter, development-only secure stores, CI, Docker, integration fixes, and GitHub delivery.
+
+This checkpoint is an implementation candidate, not production acceptance. OPS-001, production adapters, live sandbox contract tests, independent REV-001, legal metadata, public hosting, and REL-001 remain open.

@@ -1,0 +1,26 @@
+{
+  "name": "varoriya-generate",
+  "version": "0.1.0",
+  "description": "A safe generation workflow for Varoriya image, video, and audio jobs.",
+  "author": {
+    "name": "OpesSemper",
+    "url": "https://github.com/OpesSemper"
+  },
+  "homepage": "https://github.com/OpesSemper/varoriya-chatgpt-plugin",
+  "repository": "https://github.com/OpesSemper/varoriya-chatgpt-plugin",
+  "keywords": ["varoriya", "image-generation", "video-generation", "audio-generation", "mcp"],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Varoriya Generate",
+    "shortDescription": "Generate media with quote-first safety.",
+    "longDescription": "Guides Varoriya image, video, and audio generation through model discovery, live pricing, explicit confirmation, job polling, and expiring result delivery.",
+    "developerName": "OpesSemper",
+    "category": "Productivity",
+    "capabilities": ["Interactive", "Write"],
+    "defaultPrompt": [
+      "Generate an image with Varoriya after showing me the live quote.",
+      "Help me choose a Varoriya video model and confirm the cost.",
+      "Check the status of my Varoriya generation job."
+    ]
+  }
+}

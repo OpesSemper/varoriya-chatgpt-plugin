@@ -2,7 +2,7 @@
 
 | Tool | Intent | Side effect | Scope | Critical acceptance |
 |---|---|---:|---|---|
-| `list_models` | Discover supported models and limits | No | `generation:read` | only current, allowed capabilities are returned |
+| `list_models` | Discover supported models and limits | No | Public discovery | only current, allowlisted capabilities are returned; no incidental bearer token is forwarded |
 | `quote_generation` | Return live price and signed quote token | No | `generation:read` | token binds user, model, parameters, price, and expiry |
 | `get_balance` | Read current user credit | No | `billing:read` | never exposes another account |
 | `upload_input` | Store reference media | Yes | `files:write` | validates owner, MIME, size, malware, and SSRF policy |

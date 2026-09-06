@@ -22,4 +22,3 @@ The Security Lead assigns final severity. Timelines are targets, not a bug-bount
 ## Supported versions
 
 During pre-release development, only the latest main-branch revision is supported. A supported-version table will be published with the first production release.
-

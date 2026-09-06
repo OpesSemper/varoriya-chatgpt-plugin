@@ -2,7 +2,7 @@
 
 Public engineering repository for the Varoriya media-generation plugin for ChatGPT and Codex.
 
-Status: planning baseline — implementation has not started.
+Status: implementation baseline — local build and security-focused tests pass; production deployment and directory submission remain gated.
 
 ## Scope
 
@@ -39,6 +39,23 @@ See [implementation plan](docs/project/IMPLEMENTATION_PLAN.md), [project setup](
 - `docs/compliance/` — ISO mapping and evidence index
 - `docs/project/` — roadmap, backlog, project fields, and release gates
 - `.github/ISSUE_TEMPLATE/` — task, bug, risk, and change-control templates
+- `server/` — TypeScript MCP gateway, Varoriya adapter, security policies, and tests
+- `plugins/varoriya-generate/` — plugin manifest and quote-first generation workflow skill
+- `.github/workflows/` — repeatable CI verification
+
+## Local verification
+
+```bash
+cd server
+npm ci
+npm run typecheck
+npm test
+npm run build
+cd ..
+node scripts/validate-plugin.mjs
+```
+
+The local development composition is intentionally not a production deployment. Production startup remains blocked until durable stores, real malware scanning, confirmed Varoriya OAuth-to-REST behavior, public HTTPS hosting, and required human approvals are supplied.
 
 ## Security and data classification
 
@@ -47,4 +64,3 @@ This is a public repository. Do not commit secrets, OAuth credentials, reviewer 
 ## License
 
 No license is granted until the repository owner publishes an explicit license file.
-

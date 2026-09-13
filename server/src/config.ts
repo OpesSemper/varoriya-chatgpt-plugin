@@ -69,6 +69,7 @@ export interface DevApiKeyConfig {
 
 export interface CostPolicyConfig {
   /** Integer units in the smallest billable denomination. */
+  readonly currency: string;
   readonly maxRequestCostUnits: number;
   readonly maxUserCostUnitsPerWindow: number;
   readonly windowSeconds: number;
@@ -451,6 +452,7 @@ export function loadConfig(env: EnvironmentInput): AppConfig {
   }
 
   const cost = Object.freeze({
+    currency: parseCurrency(env.VARORIYA_COST_CURRENCY, collector),
     maxRequestCostUnits: parseInteger(
       env,
       "VARORIYA_MAX_REQUEST_COST_UNITS",
@@ -516,14 +518,25 @@ export function loadConfig(env: EnvironmentInput): AppConfig {
       maxUploadBytes: parseInteger(
         env,
         "VARORIYA_MAX_UPLOAD_BYTES",
-        50 * 1024 * 1024,
+        10 * 1024 * 1024,
         collector,
         1_024,
-        2 * 1024 * 1024 * 1024,
+        10 * 1024 * 1024,
       ),
     }),
   });
 
   collector.assertValid();
   return config;
+}
+
+function parseCurrency(
+  raw: string | undefined,
+  collector: ConfigCollector,
+): string {
+  const currency = raw?.trim() || "CRD";
+  if (!/^[A-Z]{3}$/.test(currency)) {
+    collector.add("VARORIYA_COST_CURRENCY", "must be a three-letter uppercase code");
+  }
+  return currency;
 }

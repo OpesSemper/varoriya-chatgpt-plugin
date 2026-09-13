@@ -10,6 +10,7 @@ export interface IdempotencyAcquireRequest {
   readonly subject: string;
   readonly key: string;
   readonly requestId: string;
+  readonly requestFingerprint: string;
   readonly nowEpochMilliseconds: number;
   readonly reservationTtlMilliseconds: number;
   readonly completedRetentionMilliseconds: number;
@@ -78,15 +79,18 @@ export class IdempotencyPolicy {
   public async acquire(
     context: AuthenticatedRequestContext,
     key: string,
+    requestFingerprint: string,
   ): Promise<IdempotencyLease> {
     validateIdentity(context.subject);
     validateOpaqueId(context.requestId, 256);
     if (key.length < 16) throw invalidKey();
     validateOpaqueId(key, 128);
+    validateFingerprint(requestFingerprint);
     const result = await this.#store.acquire({
       subject: context.subject,
       key,
       requestId: context.requestId,
+      requestFingerprint,
       nowEpochMilliseconds: this.#now(),
       reservationTtlMilliseconds: this.#reservationTtlMilliseconds,
       completedRetentionMilliseconds: this.#completedRetentionMilliseconds,
@@ -137,12 +141,14 @@ export class IdempotencyPolicy {
 type MemoryRecord =
   | {
       readonly state: "reserved";
+      readonly requestFingerprint: string;
       readonly leaseId: string;
       readonly expiresAt: number;
       readonly completedRetentionMilliseconds: number;
     }
   | {
       readonly state: "completed";
+      readonly requestFingerprint: string;
       readonly job: GenerationJob;
       readonly expiresAt: number;
     };
@@ -175,6 +181,15 @@ export class InMemoryIdempotencyStore implements IdempotencyStore {
     this.removeExpired(request.nowEpochMilliseconds);
     const recordKey = storageKey(request.subject, request.key);
     const current = this.#records.get(recordKey);
+    if (
+      current &&
+      current.requestFingerprint !== request.requestFingerprint
+    ) {
+      throw new AppError("INVALID_INPUT", {
+        status: 409,
+        message: "The idempotency key is already bound to another request.",
+      });
+    }
     if (current?.state === "completed") {
       return { status: "completed", job: current.job };
     }
@@ -184,6 +199,7 @@ export class InMemoryIdempotencyStore implements IdempotencyStore {
     const leaseId = `dev-${request.nowEpochMilliseconds}-${this.#sequence}`;
     this.#records.set(recordKey, {
       state: "reserved",
+      requestFingerprint: request.requestFingerprint,
       leaseId,
       expiresAt:
         request.nowEpochMilliseconds + request.reservationTtlMilliseconds,
@@ -210,6 +226,7 @@ export class InMemoryIdempotencyStore implements IdempotencyStore {
     }
     this.#records.set(recordKey, {
       state: "completed",
+      requestFingerprint: current.requestFingerprint,
       job: Object.freeze({ ...job }),
       expiresAt: now + current.completedRetentionMilliseconds,
     });
@@ -236,6 +253,15 @@ export class InMemoryIdempotencyStore implements IdempotencyStore {
 
 function storageKey(subject: string, key: string): string {
   return `${subject}\u0000${key}`;
+}
+
+function validateFingerprint(value: string): void {
+  if (!/^[A-Za-z0-9_-]{43}$/.test(value)) {
+    throw new AppError("INVALID_INPUT", {
+      status: 400,
+      message: "The idempotency request fingerprint is invalid.",
+    });
+  }
 }
 
 function validateIdentity(value: string): void {

@@ -24,7 +24,7 @@ The validator must report success. Confirm that the manifest has repository and 
 
 The repository-local marketplace is `.agents/plugins/marketplace.json`. Use the marketplace name from that file and install the plugin from the checkout using the local plugin workflow supported by the current Codex CLI. The source path must resolve to `./plugins/varoriya-generate` relative to the marketplace file.
 
-After installation, start a new Codex thread so the updated skill set is discovered. Confirm that the plugin appears as `Varoriya Generate` and that the installed version is `0.1.0`.
+After installation, start a new Codex thread so the updated skill set is discovered. Confirm that the plugin appears as `Varoriya Generate` and that the installed version begins with `0.2.0+codex.`.
 
 ## Run the safe workflow checks
 

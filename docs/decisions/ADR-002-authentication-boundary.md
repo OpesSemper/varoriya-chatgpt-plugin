@@ -1,6 +1,6 @@
 # ADR-002: OAuth-first authentication boundary
 
-- Status: Accepted with production gates
+- Status: Accepted for release candidate; live OAuth validation pending
 - Severity: SEV-0
 - Owner: SA-SEC (model `gpt-5.6-sol`, effort `xhigh`)
 
@@ -14,5 +14,5 @@ A separate API-key mode exists only for local development. Startup rejects that 
 
 - Confirm the OAuth issuer, JWKS URI, audience, resource parameter, PKCE/client-registration behavior, and key-rotation policy.
 - Confirm whether the resulting OAuth access token is accepted by Varoriya REST endpoints. Do not substitute a shared production API key for user-scoped access.
-- Provide durable ownership, quote, cost, and idempotency stores plus a real malware scanner.
+- Provision and exercise the implemented durable ownership, quote, cost, and idempotency stores plus ClamAV in the target environment.
 - Complete independent authorization-negative and cross-account tests before release.

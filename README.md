@@ -2,7 +2,7 @@
 
 Public engineering repository for the Varoriya media-generation plugin for ChatGPT and Codex.
 
-Status: implementation baseline — local build and security-focused tests pass; production deployment and directory submission remain gated.
+Status: release candidate — production adapters, operations wiring, release tests, and bilingual guides are implemented; production deployment and directory submission remain gated by publisher-owned external inputs and approvals.
 
 ## Scope
 
@@ -42,6 +42,9 @@ See [implementation plan](docs/project/IMPLEMENTATION_PLAN.md), [project setup](
 - `server/` — TypeScript MCP gateway, Varoriya adapter, security policies, and tests
 - `plugins/varoriya-generate/` — plugin manifest and quote-first generation workflow skill
 - `.github/workflows/` — repeatable CI verification
+- `docs/guides/` — English and Thai end-user/admin guides
+- `docs/publishing/` — listing copy, legal gate, submission guide, and release notes
+- `deploy/` — hardened production composition reference
 
 ## Local verification
 
@@ -53,9 +56,14 @@ npm test
 npm run build
 cd ..
 node scripts/validate-plugin.mjs
+node scripts/release/validate-submission.mjs
 ```
 
-The local development composition is intentionally not a production deployment. Production startup remains blocked until durable stores, real malware scanning, confirmed Varoriya OAuth-to-REST behavior, public HTTPS hosting, and required human approvals are supplied.
+The automated server suite uses local fixtures and does not spend Varoriya credit. `validate-submission.mjs` intentionally fails while publisher-owned URLs, identity, authorization, or reviewer evidence remain unresolved.
+
+Production startup uses PostgreSQL-backed ownership/quote/cost/idempotency controls and ClamAV scanning. Publication still requires confirmed Varoriya OAuth-to-REST behavior, a publisher-owned public HTTPS origin, OpenAI account/domain verification, legal/support/logo assets, reviewer access, manual interoperability evidence, and authorized human approval.
+
+Start with the [end-user guide](docs/guides/USER_GUIDE_EN.md), [Thai end-user guide](docs/guides/USER_GUIDE_TH.md), [administrator guide](docs/guides/ADMIN_DEVELOPER_GUIDE_EN.md), and [submission guide](docs/publishing/SUBMISSION_GUIDE.md).
 
 ## Security and data classification
 

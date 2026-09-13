@@ -42,15 +42,15 @@ function createHarness(fetchImpl, quoteOverrides = {}) {
 
 test('SEV-1 quote confirmation policy binds token to subject, model, kind, parameters, and expiry', async () => {
   const policy = new QuoteValidationPolicy({ async verify() { return quoteClaims(); } }, { now: () => FIXED_EPOCH_SECONDS });
-  const valid = await policy.validate(aliceContext, generationInput.quote_token, { model: generationInput.model, kind: 'image', parameters: generationInput.parameters });
+  const valid = await policy.validate(aliceContext, generationInput.quote_token, { model: generationInput.model, kind: 'image', parameters: generationInput.parameters }, generationInput.idempotency_key);
   assert.equal(valid.subject, aliceContext.subject);
   assert.equal(valid.token, generationInput.quote_token);
-  await rejectsCode(() => policy.validate({ ...aliceContext, subject: 'user-bob' }, generationInput.quote_token, { model: generationInput.model, kind: 'image', parameters: generationInput.parameters }), 'INVALID_QUOTE');
-  await rejectsCode(() => policy.validate(aliceContext, generationInput.quote_token, { model: 'other-model', kind: 'image', parameters: generationInput.parameters }), 'INVALID_QUOTE');
-  await rejectsCode(() => policy.validate(aliceContext, generationInput.quote_token, { model: generationInput.model, kind: 'video', parameters: generationInput.parameters }), 'INVALID_QUOTE');
-  await rejectsCode(() => policy.validate(aliceContext, generationInput.quote_token, { model: generationInput.model, kind: 'image', parameters: { width: 1024 } }), 'INVALID_QUOTE');
+  await rejectsCode(() => policy.validate({ ...aliceContext, subject: 'user-bob' }, generationInput.quote_token, { model: generationInput.model, kind: 'image', parameters: generationInput.parameters }, generationInput.idempotency_key), 'INVALID_QUOTE');
+  await rejectsCode(() => policy.validate(aliceContext, generationInput.quote_token, { model: 'other-model', kind: 'image', parameters: generationInput.parameters }, generationInput.idempotency_key), 'INVALID_QUOTE');
+  await rejectsCode(() => policy.validate(aliceContext, generationInput.quote_token, { model: generationInput.model, kind: 'video', parameters: generationInput.parameters }, generationInput.idempotency_key), 'INVALID_QUOTE');
+  await rejectsCode(() => policy.validate(aliceContext, generationInput.quote_token, { model: generationInput.model, kind: 'image', parameters: { width: 1024 } }, generationInput.idempotency_key), 'INVALID_QUOTE');
   const expired = new QuoteValidationPolicy({ async verify() { return quoteClaims({ expiresAtEpochSeconds: FIXED_EPOCH_SECONDS }); } }, { now: () => FIXED_EPOCH_SECONDS });
-  await rejectsCode(() => expired.validate(aliceContext, generationInput.quote_token, { model: generationInput.model, kind: 'image', parameters: generationInput.parameters }), 'INVALID_QUOTE');
+  await rejectsCode(() => expired.validate(aliceContext, generationInput.quote_token, { model: generationInput.model, kind: 'image', parameters: generationInput.parameters }, generationInput.idempotency_key), 'INVALID_QUOTE');
 });
 
 test('SEV-1 generation rejects missing confirmation before guards or provider POST', async () => {
@@ -78,6 +78,21 @@ test('SEV-1 completed idempotency key replays the job with exactly one provider 
   assert.equal(requests.length, 1);
   assert.equal(requests[0].init.method, 'POST');
   assert.equal(requests[0].init.headers['Idempotency-Key'], generationInput.idempotency_key);
+});
+
+test('SEV-0 idempotency key reuse with a different material request fails closed', async () => {
+  const requests = [];
+  const { tools } = createHarness(async (url, init) => {
+    requests.push({ url, init });
+    return jsonResponse({ data: generationJob });
+  });
+  assert.equal((await tools.generate_image.execute(generationInput, aliceContext)).ok, true);
+  const mismatch = await tools.generate_image.execute(
+    { ...generationInput, prompt: 'A materially different generation request.' },
+    { ...aliceContext, requestId: 'request-fixture-mismatch-001' },
+  );
+  toolFailure(mismatch, 'INVALID_INPUT');
+  assert.equal(requests.length, 1);
 });
 
 test('SEV-1 in-memory idempotency and ownership stores cannot be constructed for production', () => {

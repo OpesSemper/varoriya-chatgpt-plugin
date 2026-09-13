@@ -17,6 +17,15 @@ export interface RuntimeConfig {
   readonly apiTimeoutMs: number;
   readonly providerApiKey?: string;
   readonly oauthJwksUri?: string;
+  readonly databaseUrl?: string;
+  readonly databasePoolMax: number;
+  readonly databaseConnectionTimeoutMs: number;
+  readonly databaseStatementTimeoutMs: number;
+  readonly clamAvHost?: string;
+  readonly clamAvPort: number;
+  readonly clamAvTimeoutMs: number;
+  readonly healthTimeoutMs: number;
+  readonly shutdownTimeoutMs: number;
   readonly modelPolicies: readonly ModelPolicyConfig[];
 }
 
@@ -29,6 +38,12 @@ export function loadRuntimeConfig(
     env.VARORIYA_OAUTH_JWKS_URI,
     "VARORIYA_OAUTH_JWKS_URI",
   );
+  const apiBaseUrl =
+    optionalAbsoluteUrl(env.VARORIYA_API_BASE_URL, "VARORIYA_API_BASE_URL") ??
+    "https://api.varoriya.com";
+  const databaseUrl = optionalPostgresUrl(env.DATABASE_URL);
+  const clamAvHost = optionalHost(env.CLAMAV_HOST, "CLAMAV_HOST");
+  const modelPolicies = parseModelPolicies(env.VARORIYA_MODEL_POLICIES_JSON);
   if (environment === "production" && !publicOrigin) {
     throw configurationError("PUBLIC_ORIGIN is required in production.");
   }
@@ -39,14 +54,34 @@ export function loadRuntimeConfig(
   ) {
     throw configurationError("PUBLIC_ORIGIN must use HTTPS in production.");
   }
+  if (environment === "production" && !apiBaseUrl.startsWith("https://")) {
+    throw configurationError("VARORIYA_API_BASE_URL must use HTTPS in production.");
+  }
+  if (environment === "production" && !oauthJwksUri?.startsWith("https://")) {
+    throw configurationError("VARORIYA_OAUTH_JWKS_URI must use HTTPS in production.");
+  }
+  if (environment === "production" && env.VARORIYA_API_KEY?.trim()) {
+    throw configurationError(
+      "VARORIYA_API_KEY is forbidden in OAuth production mode.",
+    );
+  }
+  if (environment === "production" && !databaseUrl) {
+    throw configurationError("DATABASE_URL is required in production.");
+  }
+  if (environment === "production" && !clamAvHost) {
+    throw configurationError("CLAMAV_HOST is required in production.");
+  }
+  if (environment === "production" && modelPolicies.length === 0) {
+    throw configurationError(
+      "VARORIYA_MODEL_POLICIES_JSON must allow at least one production model.",
+    );
+  }
 
   return Object.freeze({
     host: env.HOST?.trim() || "127.0.0.1",
     port: integer(env.PORT, 3000, 1, 65_535, "PORT"),
     ...(publicOrigin ? { publicOrigin } : {}),
-    apiBaseUrl:
-      optionalAbsoluteUrl(env.VARORIYA_API_BASE_URL, "VARORIYA_API_BASE_URL") ??
-      "https://api.varoriya.com",
+    apiBaseUrl,
     apiTimeoutMs: integer(
       env.VARORIYA_API_TIMEOUT_MS,
       15_000,
@@ -58,7 +93,52 @@ export function loadRuntimeConfig(
       ? { providerApiKey: env.VARORIYA_API_KEY.trim() }
       : {}),
     ...(oauthJwksUri ? { oauthJwksUri } : {}),
-    modelPolicies: parseModelPolicies(env.VARORIYA_MODEL_POLICIES_JSON),
+    ...(databaseUrl ? { databaseUrl } : {}),
+    databasePoolMax: integer(
+      env.DATABASE_POOL_MAX,
+      10,
+      1,
+      100,
+      "DATABASE_POOL_MAX",
+    ),
+    databaseConnectionTimeoutMs: integer(
+      env.DATABASE_CONNECTION_TIMEOUT_MS,
+      5_000,
+      100,
+      60_000,
+      "DATABASE_CONNECTION_TIMEOUT_MS",
+    ),
+    databaseStatementTimeoutMs: integer(
+      env.DATABASE_STATEMENT_TIMEOUT_MS,
+      10_000,
+      100,
+      120_000,
+      "DATABASE_STATEMENT_TIMEOUT_MS",
+    ),
+    ...(clamAvHost ? { clamAvHost } : {}),
+    clamAvPort: integer(env.CLAMAV_PORT, 3310, 1, 65_535, "CLAMAV_PORT"),
+    clamAvTimeoutMs: integer(
+      env.CLAMAV_TIMEOUT_MS,
+      10_000,
+      100,
+      120_000,
+      "CLAMAV_TIMEOUT_MS",
+    ),
+    healthTimeoutMs: integer(
+      env.HEALTH_TIMEOUT_MS,
+      1_000,
+      1,
+      30_000,
+      "HEALTH_TIMEOUT_MS",
+    ),
+    shutdownTimeoutMs: integer(
+      env.SHUTDOWN_TIMEOUT_MS,
+      15_000,
+      1_000,
+      120_000,
+      "SHUTDOWN_TIMEOUT_MS",
+    ),
+    modelPolicies,
   });
 }
 
@@ -120,6 +200,36 @@ function optionalAbsoluteUrl(raw: string | undefined, name: string): string | un
   } catch {
     throw configurationError(`${name} must be a safe absolute HTTP(S) URL.`);
   }
+}
+
+function optionalPostgresUrl(raw: string | undefined): string | undefined {
+  if (!raw?.trim()) return undefined;
+  try {
+    const parsed = new URL(raw.trim());
+    if (
+      (parsed.protocol !== "postgres:" && parsed.protocol !== "postgresql:") ||
+      !parsed.hostname ||
+      parsed.hash
+    ) {
+      throw new Error("unsafe database URL");
+    }
+    return raw.trim();
+  } catch {
+    throw configurationError("DATABASE_URL must be a PostgreSQL connection URL.");
+  }
+}
+
+function optionalHost(raw: string | undefined, name: string): string | undefined {
+  if (!raw?.trim()) return undefined;
+  const value = raw.trim();
+  if (
+    value.length > 253 ||
+    !/^[A-Za-z0-9][A-Za-z0-9.:-]*$/.test(value) ||
+    value.includes("..")
+  ) {
+    throw configurationError(`${name} must be a safe hostname or IP address.`);
+  }
+  return value;
 }
 
 function integer(

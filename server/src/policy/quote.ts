@@ -23,7 +23,14 @@ export interface VerifiedQuoteClaims {
  * trust a client token.
  */
 export interface QuoteVerifier {
-  verify(token: string, nowEpochSeconds: number): Promise<VerifiedQuoteClaims>;
+  verify(
+    token: string,
+    nowEpochSeconds: number,
+    reservation: {
+      readonly requestId: string;
+      readonly reservationKey: string;
+    },
+  ): Promise<VerifiedQuoteClaims>;
 }
 
 export interface QuoteValidationPolicyOptions {
@@ -59,14 +66,23 @@ export class QuoteValidationPolicy {
     context: AuthenticatedRequestContext,
     token: string,
     expected: Pick<QuoteBinding, "model" | "kind" | "parameters">,
+    reservationKey: string,
   ): Promise<QuoteBinding> {
-    if (!validToken(token) || !validModel(expected.model) || !validKind(expected.kind)) {
+    if (
+      !validToken(token) ||
+      !validModel(expected.model) ||
+      !validKind(expected.kind) ||
+      !validOpaqueId(reservationKey)
+    ) {
       throw invalidQuote();
     }
     const now = this.#now();
     let claims: VerifiedQuoteClaims;
     try {
-      claims = await this.#verifier.verify(token, now);
+      claims = await this.#verifier.verify(token, now, {
+        requestId: context.requestId,
+        reservationKey,
+      });
     } catch (cause) {
       throw new AppError("INVALID_QUOTE", {
         status: 400,

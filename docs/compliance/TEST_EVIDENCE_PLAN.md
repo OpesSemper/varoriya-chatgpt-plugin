@@ -2,20 +2,16 @@
 
 ## Scope
 
-This suite tests the TypeScript MCP server's production modules directly under `server/src/**`. It uses Node's built-in test runner with `tsx`, deterministic in-process fixtures, and fake provider/DNS/scanner adapters. It performs no real Varoriya request, paid generation, credential use, media upload, DNS lookup, or network access.
+This suite tests the TypeScript MCP server's production modules directly under `server/src/**`. It uses Node's built-in test runner with `tsx`, deterministic in-process fixtures, fake provider/DNS/database adapters, and a loopback ClamAV protocol fixture. It performs no real Varoriya request, paid generation, production credential use, external media upload, external DNS lookup, or non-loopback network access.
 
-The QA change is restricted to:
-
-- `server/tests/**`
-- `server/test-fixtures/**`
-- `docs/compliance/TEST_EVIDENCE_PLAN.md`
+The release-candidate verification covers source, migrations, tests, plugin metadata, publication material, and validation scripts.
 
 ## Required command
 
 Run from `server/`:
 
 ```bash
-node --import tsx --test tests/**/*.test.mjs
+npm test
 ```
 
 The tests import `.ts` modules from `server/src` directly. There is no skip-on-missing path: a missing module/export, changed contract, or failed control is a hard test failure.
@@ -24,12 +20,12 @@ The tests import `.ts` modules from `server/src` directly. There is no skip-on-m
 
 - Node version: `v24.19.0`.
 - `npm run typecheck`: passed.
-- `npm test`: 25 passed, 0 failed, 0 skipped, 0 cancelled, 0 todo.
+- `npm test`: 49 passed, 0 failed, 0 skipped, 0 cancelled, 0 unfinished.
 - `npm run build`: passed.
 - `npm audit --audit-level=high`: 0 known vulnerabilities in the locked dependency graph at execution time.
-- Plugin package validators: passed.
+- Plugin package and structural release validators: passed; strict publication preflight remains blocked only by publisher-owned required inputs.
 
-These are local candidate results dated 2026-09-06. The PR commit SHA and GitHub Actions run must be linked before treating them as immutable release evidence.
+These are local candidate results dated 2026-09-13. The PR commit SHA and GitHub Actions run must be linked before treating them as immutable release evidence.
 
 ## Coverage and release evidence
 
@@ -55,11 +51,16 @@ These are local candidate results dated 2026-09-06. The PR commit SHA and GitHub
 | QA-SEV1-018 | `tool-contracts-order.test.mjs` | Charged-generation order | File ownership precedes idempotency reservation and provider submission |
 | QA-SEV1-019 | `gateway-transport.test.mjs` | Streamable HTTP transport | Health, method rejection, initialize, tools/list, and public tool call pass on an ephemeral local server |
 | QA-SEV1-020 | `gateway-transport.test.mjs` | HTTP authentication boundary | Protected calls require authentication before provider access; development credentials and adapters fail closed in production |
+| QA-SEV1-021 | `gateway-transport.test.mjs` | MCP body boundary | JSON body limit matches upload contract; oversized/malformed bodies receive safe JSON-RPC errors |
+| QA-SEV1-022 | `operations-readiness.test.mjs` | Logging, metrics, readiness | Correlation/redaction, bounded labels, required dependency failures and timeout behavior pass |
+| QA-SEV1-023 | `production-security.test.mjs` | PostgreSQL durable controls | Ownership, quote/cost reservation, idempotency fingerprint, zero-cost quote, parameterization, and fail-closed behavior pass |
+| QA-SEV1-024 | `production-security.test.mjs` | ClamAV and migrations | INSTREAM/PING framing, verdict handling, token digest schema, cleanup targets, and request fingerprint pass |
+| QA-SEV1-025 | `release-submission.test.mjs` | Reviewer harness | Six positive and five negative no-credit cases pass |
 
 ## Acceptance criteria
 
-- Zero failures, zero skips, and zero todo cases.
-- No real network requests or paid generation.
+- Zero failures, zero skips, and zero unfinished cases.
+- No external network requests or paid generation.
 - Repeating one subject/idempotency key creates no second provider POST.
 - Authorization failure invokes neither ownership data access nor provider access.
 - Provider details, bearer values, quote tokens, prompts, media, and signed URL secrets are absent from public errors/log payloads.

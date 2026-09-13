@@ -27,4 +27,5 @@ Every tool returns a stable `request_id`. Generation calls return `job_id`, `sta
 - Tool descriptions state when to use the tool and how it differs from neighboring tools.
 - Read/write scopes are separated.
 - Output identifiers support safe follow-up calls without exposing provider credentials.
+- Each positive-cost generation reserves spend by quote digest plus idempotency key; each key is HMAC-bound to the exact material request and rejects mismatched reuse.
 - Published contract snapshots are regression-tested for backward compatibility.

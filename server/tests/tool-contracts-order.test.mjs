@@ -59,10 +59,18 @@ test('SEV-1 tool registry exposes exact tools, closed schemas, and safety annota
     assert.equal(tools[name].annotations.openWorldHint, true);
     assert.equal(tools[name].inputSchema.additionalProperties, false);
   }
+  for (const tool of Object.values(tools)) {
+    assert.match(tool.title, /\S/);
+    assert.equal(tool.outputSchema.type, 'object');
+    assert.equal(tool.outputSchema.additionalProperties, false);
+    assert.equal(typeof tool.annotations.readOnlyHint, 'boolean');
+    assert.equal(typeof tool.annotations.destructiveHint, 'boolean');
+    assert.equal(typeof tool.annotations.openWorldHint, 'boolean');
+  }
   for (const name of ['list_models', 'quote_generation', 'get_balance', 'get_job']) {
     assert.equal(tools[name].annotations.readOnlyHint, true);
   }
-  assert.equal(tools.upload_input.annotations.destructiveHint, true);
+  assert.equal(tools.upload_input.annotations.destructiveHint, false);
   assert.equal(tools.upload_input.annotations.openWorldHint, true);
   assert.deepEqual(generateInputSchema.required, ['model', 'prompt', 'quote_token', 'confirm', 'idempotency_key']);
   assert.deepEqual(generateInputSchema.properties.confirm, { type: 'boolean', const: true });
@@ -113,9 +121,9 @@ test('SEV-1 generation checks file ownership before idempotency and provider sub
     'guard.scope',
     'policy.model',
     'policy.parameters',
-    'guard.quote',
     'guard.file-owner',
     'guard.idempotency',
+    'guard.quote',
     'provider.generate',
     'guard.complete',
   ]);

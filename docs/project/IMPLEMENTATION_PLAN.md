@@ -22,6 +22,7 @@ OAuth/authorization, billing/idempotency, public MCP origin, production release,
 | SA-ARCH | `gpt-5.6-sol` | xhigh | architecture, trust boundaries, ADR drafts | Solution Architect |
 | SA-SEC | `gpt-5.6-sol` | xhigh | threat model, OAuth, abuse and security review | Security Lead |
 | SA-BE | `gpt-5.6-terra` | high | MCP/API implementation, billing safety, operations | Backend/DevOps Leads |
+| SA-OPS | `gpt-5.6-terra` | high | production operations, telemetry, health, deployment/runbooks | DevOps/SRE Lead |
 | SA-QA | `gpt-5.6-luna` | high | test design, automation, traceability evidence | QA Lead |
 | SA-DOCS | `gpt-5.6-luna` | medium | SRS, public docs, submission package | Product/Legal/ISO SME |
 | SA-REVIEW | `gpt-5.6-sol` | high | independent release/security/compliance review | Release Manager |
@@ -38,9 +39,9 @@ Model assignments are execution defaults, not approval authority. Human owners r
 | SEC-001 | OAuth metadata, PKCE, audience, and token lifecycle | S0 | ARCH-001 | Security Lead | SA-SEC / xhigh |
 | SEC-002 | Scopes, ownership checks, default deny, and negative auth tests | S0 | SEC-001 | Security Lead | SA-SEC / xhigh |
 | TOOL-001 | Implement eight focused MCP tool contracts | S1 | REQ-001, ARCH-001 | Backend Lead | SA-BE / high |
-| COST-001 | Live quote, signed token, idempotency ledger, and reconciliation | S0 | TOOL-001, SEC-002 | Backend/Finance | SA-BE / high |
+| COST-001 | Live quote, signed token, idempotency ledger, and reconciliation | S0 | TOOL-001, SEC-002 | Backend/Finance | SA-BE / high; SA-SEC review / xhigh |
 | FILE-001 | Secure upload, MIME/size checks, SSRF and malware controls | S1 | TOOL-001, SEC-002 | Backend/AppSec | SA-SEC / xhigh |
-| OPS-001 | Logging, monitoring, alerts, retention, and incident evidence | S1 | ARCH-001, TOOL-001 | DevOps/SRE | SA-BE / high |
+| OPS-001 | Logging, monitoring, alerts, retention, and incident evidence | S1 | ARCH-001, TOOL-001 | DevOps/SRE | SA-OPS / high |
 | PKG-001 | Plugin manifest, app mapping, and generation workflow skill | S1 | TOOL-001, SEC-002 | Product/AI Lead | SA-DOCS / medium |
 | QA-001 | Unit, integration, auth, abuse, retry, load, and E2E suite | S1 | COST-001, FILE-001 | QA Lead | SA-QA / high |
 | COMP-001 | Requirement-control-test-evidence-release traceability | S1 | REQ-001, QA-001 | ISO SME | SA-DOCS / medium |

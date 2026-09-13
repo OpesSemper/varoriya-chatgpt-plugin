@@ -12,12 +12,14 @@
 
 ## Required architecture decisions
 
-- ADR-001: production MCP origin and integration boundaries
-- ADR-002: OAuth issuer, client identification, PKCE, audience, scopes, and token lifecycle
-- ADR-003: quote token and idempotency ledger
-- ADR-004: upload storage, retention, malware scanning, and SSRF defense
-- ADR-005: logs, metrics, audit events, retention, and sensitive-data redaction
-- ADR-006: provider abstraction, pricing reconciliation, and failure semantics
+- [ADR-001](../decisions/ADR-001-mcp-gateway.md): production MCP origin and integration boundaries
+- [ADR-002](../decisions/ADR-002-authentication-boundary.md): OAuth issuer, client identification, PKCE, audience, scopes, and token lifecycle
+- [ADR-003](../decisions/ADR-003-quote-cost-idempotency.md): quote token, per-generation cost reservation, and request-fingerprinted idempotency ledger
+- [ADR-004](../decisions/ADR-004-upload-security.md): upload limits, malware scanning, and SSRF defense
+- [ADR-005](../decisions/ADR-005-observability.md): logs, metrics, readiness, retention, and redaction
+- [ADR-006](../decisions/ADR-006-provider-contract.md): provider abstraction, pricing reconciliation, and failure semantics
+
+The current threat analysis is [THREAT_MODEL.md](../security/THREAT_MODEL.md).
 
 Every ADR must record context, decision, alternatives, security/privacy consequences, migration/rollback, approvers, and linked requirements/tests.
 

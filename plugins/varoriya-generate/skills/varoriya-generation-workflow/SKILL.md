@@ -7,6 +7,8 @@ description: Run safe Varoriya image, video, and audio generation with model dis
 
 Use this skill when the user asks to generate an image, video, or audio asset with Varoriya, compare available generation models, check a generation job, or retrieve a completed result.
 
+For a compact user-facing sequence, read `../../references/USER_GUIDE.md` when installation, connection, confirmation, polling, downloads, or safe retry behavior needs explanation.
+
 ## Operating rules
 
 - Treat generation as a credit-consuming external side effect.

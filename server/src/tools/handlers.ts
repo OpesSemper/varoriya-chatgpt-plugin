@@ -19,11 +19,18 @@ import type {
 } from "../types/varoriya.js";
 import {
   generateInputSchema,
+  generationOutputSchema,
   getBalanceInputSchema,
+  getBalanceOutputSchema,
   getJobInputSchema,
+  getJobOutputSchema,
   listModelsInputSchema,
+  listModelsOutputSchema,
+  MAX_UPLOAD_BASE64_LENGTH,
   quoteGenerationInputSchema,
+  quoteGenerationOutputSchema,
   uploadInputSchema,
+  uploadOutputSchema,
 } from "./schemas.js";
 
 const PUBLIC_SCOPES: ReadonlySet<string> = new Set<string>();
@@ -66,9 +73,11 @@ export function createVaroriyaTools(deps: VaroriyaToolDependencies): VaroriyaToo
   return {
     list_models: {
       name: "list_models",
+      title: "List Varoriya models",
       description: "List public Varoriya generation models and live limits. Use this before requesting a quote.",
       inputSchema: listModelsInputSchema,
-      annotations: { readOnlyHint: true },
+      outputSchema: listModelsOutputSchema,
+      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true },
       execute: async (input, context) => run(context, async () => {
         assertListModelsInput(input);
         // Public discovery never forwards an incidental bearer token upstream.
@@ -96,9 +105,11 @@ export function createVaroriyaTools(deps: VaroriyaToolDependencies): VaroriyaToo
     },
     quote_generation: {
       name: "quote_generation",
+      title: "Quote a generation",
       description: "Return a live price and expiring quote token for one authenticated generation request.",
       inputSchema: quoteGenerationInputSchema,
-      annotations: { readOnlyHint: true },
+      outputSchema: quoteGenerationOutputSchema,
+      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true },
       execute: async (input, context) => run(context, async () => {
         assertQuoteInput(input);
         const authenticated = requireAuthenticated(context);
@@ -115,9 +126,11 @@ export function createVaroriyaTools(deps: VaroriyaToolDependencies): VaroriyaToo
     },
     get_balance: {
       name: "get_balance",
+      title: "Get Varoriya balance",
       description: "Get the authenticated account's current Varoriya credit balance.",
       inputSchema: getBalanceInputSchema,
-      annotations: { readOnlyHint: true },
+      outputSchema: getBalanceOutputSchema,
+      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true },
       execute: async (input, context) => run(context, async () => {
         assertEmptyObject(input);
         const authenticated = requireAuthenticated(context);
@@ -127,9 +140,11 @@ export function createVaroriyaTools(deps: VaroriyaToolDependencies): VaroriyaToo
     },
     upload_input: {
       name: "upload_input",
+      title: "Upload reference media",
       description: "Upload validated reference media owned by the authenticated user for later generation.",
       inputSchema: uploadInputSchema,
-      annotations: { destructiveHint: true, openWorldHint: true },
+      outputSchema: uploadOutputSchema,
+      annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: true },
       execute: async (input, context) => run(context, async () => {
         assertUploadInput(input);
         const authenticated = requireAuthenticated(context);
@@ -143,9 +158,11 @@ export function createVaroriyaTools(deps: VaroriyaToolDependencies): VaroriyaToo
     generate_audio: generationTool("audio", deps),
     get_job: {
       name: "get_job",
+      title: "Get generation job",
       description: "Read a generation job owned by the authenticated user and return safe result metadata.",
       inputSchema: getJobInputSchema,
-      annotations: { readOnlyHint: true },
+      outputSchema: getJobOutputSchema,
+      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true },
       execute: async (input, context) => run(context, async () => {
         assertGetJobInput(input);
         const authenticated = requireAuthenticated(context);
@@ -164,9 +181,11 @@ function generationTool(
 ): McpToolDefinition<GenerateInput> {
   return {
     name: `generate_${kind}`,
+    title: `Generate ${kind}`,
     description: `Create a charged ${kind} job after an explicit confirmation using an unexpired live quote.`,
     inputSchema: generateInputSchema,
-    annotations: { destructiveHint: true, openWorldHint: true },
+    outputSchema: generationOutputSchema,
+    annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: true },
     execute: async (input, context) => run(context, async () => {
       assertGenerateInput(input);
       const authenticated = requireAuthenticated(context);
@@ -179,34 +198,39 @@ function generationTool(
         kind,
         input.parameters ?? {},
       );
-      const quote = await deps.guards.validateQuote(authenticated, input.quote_token, {
-        model: input.model,
-        kind,
-        parameters,
-      });
-      if (
-        quote.subject !== authenticated.subject
-        || quote.token !== input.quote_token
-        || isExpired(quote.expiresAt)
-      ) {
-        throw new ToolHandlerError(
-          "INVALID_QUOTE",
-          "The quote is invalid or has expired. Request a new quote.",
-          false,
-        );
-      }
-
       if (input.input_file_ids && input.input_file_ids.length > 0) {
         await deps.guards.assertFileOwnership(authenticated, input.input_file_ids);
       }
       const lease = await deps.guards.acquireIdempotency(
         authenticated,
         input.idempotency_key,
+        generationRequestFingerprint(kind, input, parameters),
       );
       if (lease.replay) return lease.replay;
 
       let job: GenerationJob;
       try {
+        const quote = await deps.guards.validateQuote(
+          authenticated,
+          input.quote_token,
+          {
+            model: input.model,
+            kind,
+            parameters,
+          },
+          input.idempotency_key,
+        );
+        if (
+          quote.subject !== authenticated.subject
+          || quote.token !== input.quote_token
+          || isExpired(quote.expiresAt)
+        ) {
+          throw new ToolHandlerError(
+            "INVALID_QUOTE",
+            "The quote is invalid or has expired. Request a new quote.",
+            false,
+          );
+        }
         job = await deps.client.generate(authenticated, kind, {
           model: input.model,
           prompt: input.prompt,
@@ -231,6 +255,25 @@ function generationTool(
       return job;
     }),
   };
+}
+
+function generationRequestFingerprint(
+  kind: GenerationKind,
+  input: GenerateInput,
+  parameters: Readonly<Record<string, unknown>>,
+): string {
+  const materialRequest = JSON.stringify({
+    kind,
+    model: input.model,
+    prompt: input.prompt,
+    input_file_ids: input.input_file_ids ?? [],
+    parameters,
+  });
+  // The high-entropy quote token acts as the HMAC key. Persisting this digest
+  // binds the key to the exact request without storing prompt or token bytes.
+  return createHmac("sha256", input.quote_token)
+    .update(materialRequest)
+    .digest("base64url");
 }
 
 async function requireAllowedModel(
@@ -339,7 +382,7 @@ function assertUploadInput(input: unknown): asserts input is UploadInput {
     !isNonEmptyString(input.filename, 255)
     || /[\\/]/.test(input.filename)
     || !isMime(input.mime_type)
-    || !isBase64(input.content_base64, 10 * 1024 * 1024)
+    || !isBase64(input.content_base64, MAX_UPLOAD_BASE64_LENGTH)
   ) {
     invalidInput();
   }
@@ -452,3 +495,4 @@ function isExpired(isoTimestamp: string): boolean {
   const parsed = Date.parse(isoTimestamp);
   return Number.isNaN(parsed) || parsed <= Date.now();
 }
+import { createHmac } from "node:crypto";

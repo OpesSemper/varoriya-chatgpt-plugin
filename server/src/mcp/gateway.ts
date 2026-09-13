@@ -1,7 +1,12 @@
 import { randomUUID } from "node:crypto";
 
-import type { Express, Request, Response } from "express";
-import { createMcpExpressApp } from "@modelcontextprotocol/sdk/server/express.js";
+import express, {
+  type Express,
+  type NextFunction,
+  type Request,
+  type Response,
+} from "express";
+import { hostHeaderValidation } from "@modelcontextprotocol/sdk/server/middleware/hostHeaderValidation.js";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import {
@@ -14,6 +19,13 @@ import {
 import type { Authenticator } from "../auth/types.js";
 import type { AppConfig } from "../config.js";
 import { AppError, asAppError } from "../errors.js";
+import type { HealthRegistry } from "../health/readiness.js";
+import type { StructuredLogger } from "../observability/logger.js";
+import type { OperationsMetrics } from "../observability/metrics.js";
+import {
+  createRequestCorrelation,
+  type RequestCorrelation,
+} from "../observability/request-correlation.js";
 import type { RuntimeConfig } from "../runtime.js";
 import { createVaroriyaTools } from "../tools/handlers.js";
 import type {
@@ -55,16 +67,58 @@ export interface GatewayDependencies {
   readonly authenticator: Authenticator;
   readonly client: VaroriyaApiClient;
   readonly security: GatewaySecurity;
+  readonly operations?: GatewayOperations;
+}
+
+export interface GatewayOperations {
+  readonly logger: StructuredLogger;
+  readonly metrics: OperationsMetrics;
+  readonly health: HealthRegistry;
 }
 
 export function createGatewayApp(dependencies: GatewayDependencies): Express {
   const allowedHosts = dependencies.runtime.publicOrigin
-    ? publicAllowedHosts(dependencies.runtime.publicOrigin)
-    : undefined;
-  const app = createMcpExpressApp({
-    host: dependencies.runtime.host,
-    ...(allowedHosts ? { allowedHosts } : {}),
-  });
+    ? publicAllowedHosts(
+        dependencies.runtime.publicOrigin,
+        dependencies.runtime.host,
+      )
+    : localAllowedHosts(dependencies.runtime.host);
+  const app = express();
+  if (allowedHosts) app.use(hostHeaderValidation(allowedHosts));
+  const correlations = new WeakMap<Request, RequestCorrelation>();
+  if (dependencies.operations) {
+    app.use((request, response, next) => {
+      const startedAt = Date.now();
+      const correlation = createRequestCorrelation(request.headers["x-request-id"]);
+      correlations.set(request, correlation);
+      response.setHeader("x-request-id", correlation.requestId);
+      response.once("finish", () => {
+        const route = request.path === "/mcp" ? "mcp" : "health";
+        const durationMs = Math.max(0, Date.now() - startedAt);
+        dependencies.operations?.metrics.request({
+          route,
+          status: response.statusCode,
+          durationMs,
+        });
+        dependencies.operations?.logger
+          .withCorrelation(correlation)
+          .log("info", "http.request.completed", {
+            method: request.method,
+            route,
+            status: response.statusCode,
+            duration_ms: durationMs,
+          });
+      });
+      next();
+    });
+  }
+  app.use(
+    express.json({
+      limit: maximumMcpJsonBytes(dependencies.appConfig.media.maxUploadBytes),
+      strict: true,
+      type: "application/json",
+    }),
+  );
   const tools = Object.values(
     createVaroriyaTools({
       client: dependencies.client,
@@ -79,6 +133,25 @@ export function createGatewayApp(dependencies: GatewayDependencies): Express {
 
   app.get("/healthz", (_request, response) => {
     response.status(200).json({ status: "ok" });
+  });
+  app.get("/livez", (_request, response) => {
+    response
+      .status(200)
+      .json(dependencies.operations?.health.liveness() ?? { status: "alive" });
+  });
+  app.get("/readyz", async (_request, response) => {
+    if (!dependencies.operations) {
+      response.status(200).json({ status: "ready", dependencies: [] });
+      return;
+    }
+    const readiness = await dependencies.operations.health.readiness();
+    for (const dependency of readiness.dependencies) {
+      dependencies.operations.metrics.readiness({
+        dependency: dependency.name,
+        ready: dependency.state === "pass",
+      });
+    }
+    response.status(readiness.status === "ready" ? 200 : 503).json(readiness);
   });
 
   if (dependencies.appConfig.oauth && dependencies.runtime.publicOrigin) {
@@ -111,6 +184,7 @@ export function createGatewayApp(dependencies: GatewayDependencies): Express {
         request,
         response,
         dependencies,
+        correlations.get(request),
       );
       if (!authenticated) return;
     }
@@ -119,6 +193,7 @@ export function createGatewayApp(dependencies: GatewayDependencies): Express {
       dependencies,
       tools,
       toolByName,
+      correlations.get(request),
     );
     const transport = new StreamableHTTPServerTransport({
       sessionIdGenerator: undefined,
@@ -154,6 +229,42 @@ export function createGatewayApp(dependencies: GatewayDependencies): Express {
   app.get("/mcp", methodNotAllowed);
   app.delete("/mcp", methodNotAllowed);
 
+  app.use(
+    (
+      error: unknown,
+      _request: Request,
+      response: Response,
+      next: NextFunction,
+    ) => {
+      if (response.headersSent) {
+        next(error);
+        return;
+      }
+      const status = bodyParserStatus(error);
+      if (status !== 400 && status !== 413) {
+        next(error);
+        return;
+      }
+      const tooLarge = status === 413;
+      response.setHeader("Cache-Control", "no-store");
+      response.status(status).json({
+        jsonrpc: "2.0",
+        error: {
+          code: -32002,
+          message: tooLarge ? "Request payload too large" : "Invalid JSON request",
+          data: {
+            code: tooLarge ? "PAYLOAD_TOO_LARGE" : "INVALID_INPUT",
+            message: tooLarge
+              ? "The request body exceeds the configured upload limit."
+              : "The request body must contain valid JSON.",
+            recoverable: false,
+          },
+        },
+        id: null,
+      });
+    },
+  );
+
   return app;
 }
 
@@ -161,8 +272,9 @@ async function authenticateHttpBoundary(
   request: Request,
   response: Response,
   dependencies: GatewayDependencies,
+  correlation?: RequestCorrelation,
 ): Promise<boolean> {
-  const requestId = randomUUID();
+  const requestId = correlation?.requestId ?? randomUUID();
   try {
     if (!hasCredential(request, dependencies.appConfig)) {
       throw new AppError("AUTH_REQUIRED", {
@@ -171,8 +283,17 @@ async function authenticateHttpBoundary(
       });
     }
     await dependencies.authenticator.authenticate(request.headers);
+    dependencies.operations?.metrics.auth({
+      mode: dependencies.appConfig.authMode,
+      outcome: "success",
+    });
     return true;
   } catch (error) {
+    const failure = asAppError(error);
+    dependencies.operations?.metrics.auth({
+      mode: dependencies.appConfig.authMode,
+      outcome: failure.code === "AUTH_REQUIRED" ? "required" : "invalid",
+    });
     if (
       dependencies.appConfig.authMode === "oauth" &&
       dependencies.runtime.publicOrigin
@@ -188,7 +309,7 @@ async function authenticateHttpBoundary(
       error: {
         code: -32001,
         message: "Authentication required",
-        data: asAppError(error).toPublicBody(requestId),
+        data: failure.toPublicBody(requestId),
       },
       id: requestBodyId(request.body),
     });
@@ -218,9 +339,10 @@ function createRequestServer(
   dependencies: GatewayDependencies,
   tools: readonly McpToolDefinition<unknown>[],
   toolByName: ReadonlyMap<string, McpToolDefinition<unknown>>,
+  correlation?: RequestCorrelation,
 ): Server {
   const server = new Server(
-    { name: "varoriya-mcp-gateway", version: "0.1.0" },
+    { name: "varoriya-mcp-gateway", version: "0.2.0" },
     {
       capabilities: { tools: {} },
       instructions:
@@ -231,8 +353,10 @@ function createRequestServer(
   server.setRequestHandler(ListToolsRequestSchema, async () => ({
     tools: tools.map((tool) => ({
       name: tool.name,
+      title: tool.title,
       description: tool.description,
       inputSchema: tool.inputSchema,
+      outputSchema: tool.outputSchema,
       ...(tool.annotations ? { annotations: tool.annotations } : {}),
     })),
   }));
@@ -242,11 +366,18 @@ function createRequestServer(
     if (!tool) {
       throw new McpError(ErrorCode.MethodNotFound, "Unknown tool.");
     }
-    const requestId = randomUUID();
+    const requestId = correlation?.requestId ?? randomUUID();
     let context: RequestContext;
     try {
-      context = await createRequestContext(request, requestId, dependencies);
+      context =
+        tool.name === "list_models"
+          ? Object.freeze({ requestId, scopes: new Set<string>() })
+          : await createRequestContext(request, requestId, dependencies);
     } catch (error) {
+      dependencies.operations?.metrics.tool({
+        tool: tool.name,
+        outcome: "failure",
+      });
       return mcpResult({
         ok: false,
         request_id: requestId,
@@ -258,6 +389,10 @@ function createRequestServer(
     try {
       result = await tool.execute(call.params.arguments ?? {}, context);
     } catch (error) {
+      dependencies.operations?.metrics.tool({
+        tool: tool.name,
+        outcome: "failure",
+      });
       return mcpResult({
         ok: false,
         request_id: requestId,
@@ -274,6 +409,10 @@ function createRequestServer(
           dependencies.security,
         );
       } catch (error) {
+        dependencies.operations?.metrics.tool({
+          tool: tool.name,
+          outcome: "failure",
+        });
         return mcpResult({
           ok: false,
           request_id: requestId,
@@ -281,6 +420,10 @@ function createRequestServer(
         });
       }
     }
+    dependencies.operations?.metrics.tool({
+      tool: tool.name,
+      outcome: result.ok ? "success" : "failure",
+    });
     return mcpResult(result);
   });
 
@@ -370,7 +513,31 @@ function mcpResult(result: object): {
   };
 }
 
-function publicAllowedHosts(origin: string): string[] {
+function publicAllowedHosts(origin: string, bindHost: string): string[] {
   const parsed = new URL(origin);
-  return Array.from(new Set([parsed.hostname, parsed.host]));
+  const loopback =
+    bindHost === "127.0.0.1" || bindHost === "::1" || bindHost === "localhost"
+      ? [bindHost]
+      : [];
+  return Array.from(new Set([parsed.hostname, ...loopback]));
+}
+
+function localAllowedHosts(bindHost: string): string[] | undefined {
+  if (bindHost === "127.0.0.1") return ["127.0.0.1", "localhost", "[::1]"];
+  if (bindHost === "localhost") return ["localhost", "127.0.0.1", "[::1]"];
+  if (bindHost === "::1") return ["[::1]", "localhost", "127.0.0.1"];
+  return undefined;
+}
+
+function maximumMcpJsonBytes(maxUploadBytes: number): number {
+  // Base64 expands by 4/3. Reserve bounded space for the JSON-RPC envelope,
+  // prompt, file metadata, and escaping without accepting an unbounded body.
+  const encodedMediaBytes = Math.ceil(maxUploadBytes / 3) * 4;
+  return encodedMediaBytes + 256 * 1024;
+}
+
+function bodyParserStatus(error: unknown): number | undefined {
+  if (typeof error !== "object" || error === null) return undefined;
+  const status = (error as { readonly status?: unknown }).status;
+  return status === 400 || status === 413 ? status : undefined;
 }

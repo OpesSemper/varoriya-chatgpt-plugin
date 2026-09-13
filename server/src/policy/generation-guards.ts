@@ -57,9 +57,15 @@ export class GenerationSecurityGuards implements GenerationGuards {
     context: AuthenticatedRequestContext,
     token: string,
     expected: Pick<QuoteBinding, "model" | "kind" | "parameters">,
+    reservationKey: string,
   ): Promise<QuoteBinding> {
     try {
-      return await this.#dependencies.quotes.validate(context, token, expected);
+      return await this.#dependencies.quotes.validate(
+        context,
+        token,
+        expected,
+        reservationKey,
+      );
     } catch (error) {
       throw toToolBoundaryError(context.requestId, error);
     }
@@ -68,9 +74,14 @@ export class GenerationSecurityGuards implements GenerationGuards {
   public async acquireIdempotency(
     context: AuthenticatedRequestContext,
     key: string,
+    requestFingerprint: string,
   ): Promise<IdempotencyLease> {
     try {
-      return await this.#dependencies.idempotency.acquire(context, key);
+      return await this.#dependencies.idempotency.acquire(
+        context,
+        key,
+        requestFingerprint,
+      );
     } catch (error) {
       throw toToolBoundaryError(context.requestId, error);
     }

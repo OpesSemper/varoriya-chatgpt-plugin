@@ -36,15 +36,20 @@ export class ModelAllowlistPolicy {
     kind: GenerationKind,
   ): boolean =>
     this.#entries.some(
-      (entry) =>
-        entry.model === model &&
-        entry.kinds.includes(kind) &&
-        (entry.requiredScopes ?? []).every((scope) =>
-          context.scopes.has(scope),
-        ) &&
-        (!entry.subjects ||
-          (context.subject !== undefined &&
-            entry.subjects.includes(context.subject))),
+      (entry) => {
+        if (entry.model !== model || !entry.kinds.includes(kind)) return false;
+        if (context.subject === undefined) {
+          // Public discovery may show generally available models, but never a
+          // subject-restricted entitlement. Protected tools enforce scopes.
+          return entry.subjects === undefined;
+        }
+        return (
+          (entry.requiredScopes ?? []).every((scope) =>
+            context.scopes.has(scope),
+          ) &&
+          (!entry.subjects || entry.subjects.includes(context.subject))
+        );
+      },
     );
 }
 

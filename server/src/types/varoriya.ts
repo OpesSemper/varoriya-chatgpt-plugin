@@ -71,11 +71,13 @@ export interface GenerationGuards {
     context: AuthenticatedRequestContext,
     token: string,
     expected: Pick<QuoteBinding, "model" | "kind" | "parameters">,
+    reservationKey: string,
   ): QuoteBinding | Promise<QuoteBinding>;
   /** Must atomically reserve or replay an idempotency key per OAuth subject. */
   acquireIdempotency(
     context: AuthenticatedRequestContext,
     key: string,
+    requestFingerprint: string,
   ): IdempotencyLease | Promise<IdempotencyLease>;
   /** Must default-deny before a provider job id is used. */
   assertJobOwnership(context: AuthenticatedRequestContext, jobId: string): void | Promise<void>;
@@ -167,17 +169,14 @@ export interface GetJobInput {
   readonly job_id: string;
 }
 
-export interface JsonSchema {
-  readonly type: "object";
-  readonly additionalProperties: false;
-  readonly properties: Readonly<Record<string, unknown>>;
-  readonly required?: readonly string[];
-}
+export type JsonSchema = Readonly<Record<string, unknown>>;
 
 export interface McpToolDefinition<TInput> {
   readonly name: string;
+  readonly title: string;
   readonly description: string;
   readonly inputSchema: JsonSchema;
+  readonly outputSchema: JsonSchema;
   readonly annotations?: {
     readonly readOnlyHint?: boolean;
     readonly destructiveHint?: boolean;

@@ -43,5 +43,12 @@ jobs:
         run: npm run build
         working-directory: server
 
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=high
+        working-directory: server
+
       - name: Validate plugin package
         run: node scripts/validate-plugin.mjs
+
+      - name: Validate release structure
+        run: node scripts/release/validate-submission.mjs --allow-publisher-inputs

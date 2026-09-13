@@ -9,7 +9,10 @@ const marketplacePath = resolve(repositoryRoot, ".agents/plugins/marketplace.jso
 
 const manifest = JSON.parse(await readFile(manifestPath, "utf8"));
 assert(manifest.name === "varoriya-generate", "manifest name must match its folder");
-assert(/^\d+\.\d+\.\d+$/.test(manifest.version), "manifest version must be semver");
+assert(
+  /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/.test(manifest.version),
+  "manifest version must be semver",
+);
 assert(typeof manifest.description === "string" && manifest.description.length > 20, "manifest description is required");
 const skillPaths =
   typeof manifest.skills === "string"

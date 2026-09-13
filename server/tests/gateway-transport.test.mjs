@@ -116,6 +116,7 @@ function createFakeDependencies() {
   const appConfig = {
     authMode: 'dev-api-key',
     devApiKey: { headerName: 'x-varoriya-dev-api-key' },
+    media: { maxUploadBytes: 1_024, allowedMimeTypes: ['image/png'] },
   };
   const runtime = {
     host: '127.0.0.1',
@@ -313,6 +314,31 @@ test('SEV-1 protected tool calls fail at the HTTP boundary when authentication i
   assert.deepEqual(gateway.calls, []);
 });
 
+test('SEV-1 MCP JSON parsing is upload-aware, bounded, and returns safe JSON-RPC errors', async (t) => {
+  const gateway = await startEphemeralApp();
+  t.after(() => gateway.close());
+
+  const oversized = await fetch(`${gateway.baseUrl}/mcp`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ padding: 'A'.repeat(300_000) }),
+  });
+  assert.equal(oversized.status, 413);
+  assert.equal(oversized.headers.get('cache-control'), 'no-store');
+  const oversizedBody = await oversized.json();
+  assert.equal(oversizedBody.error.data.code, 'PAYLOAD_TOO_LARGE');
+  assert.equal(JSON.stringify(oversizedBody).includes('A'.repeat(100)), false);
+
+  const malformed = await fetch(`${gateway.baseUrl}/mcp`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: '{"jsonrpc":',
+  });
+  assert.equal(malformed.status, 400);
+  assert.equal((await malformed.json()).error.data.code, 'INVALID_INPUT');
+  assert.deepEqual(gateway.calls, []);
+});
+
 test('SEV-1 runtime rejects development API-key mode in production and production security adapters fail closed', () => {
   assert.throws(
     () => loadConfig({
@@ -333,6 +359,15 @@ test('SEV-1 runtime rejects development API-key mode in production and productio
     VARORIYA_OAUTH_AUDIENCES: 'varoriya-gateway',
     VARORIYA_OAUTH_JWKS_URI: 'https://issuer.example.test/.well-known/jwks.json',
     PUBLIC_ORIGIN: 'https://plugin.example.test',
+    DATABASE_URL: 'postgresql://gateway:fixture-only@database.example.test/varoriya',
+    CLAMAV_HOST: 'clamav.example.test',
+    VARORIYA_MODEL_POLICIES_JSON: JSON.stringify([
+      {
+        model: 'fixture-image-v1',
+        kinds: ['image'],
+        allowedParameterKeys: ['width', 'height'],
+      },
+    ]),
   };
   const appConfig = loadConfig(productionEnv);
   const runtime = loadRuntimeConfig(productionEnv);

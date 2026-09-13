@@ -1,0 +1,77 @@
+{
+  "schema_version": "varoriya-release-checklist.v1",
+  "release_name": "Varoriya ChatGPT Plugin submission",
+  "credit_policy": "All automated cases use local fakes and zero-cost fixtures. No Varoriya request or real credential is permitted.",
+  "gates": [
+    {
+      "id": "AUTO-001",
+      "severity": "SEV-1",
+      "title": "Typecheck, build, and automated test suite",
+      "execution": "automated",
+      "command": "cd server && npm ci && npm run typecheck && npm test && npm run build",
+      "acceptance": "zero failures, zero skipped cases, zero unfinished cases",
+      "status": "REQUIRED_AT_RELEASE"
+    },
+    {
+      "id": "AUTO-002",
+      "severity": "SEV-1",
+      "title": "Release harness and package validation",
+      "execution": "automated",
+      "command": "node scripts/validate-plugin.mjs && node scripts/release/validate-submission.mjs",
+      "acceptance": "all release cases pass and machine-readable validation returns ok=true",
+      "status": "REQUIRED_AT_RELEASE"
+    },
+    {
+      "id": "AUTO-003",
+      "severity": "SEV-1",
+      "title": "Dependency and secret hygiene",
+      "execution": "automated",
+      "command": "cd server && npm audit --audit-level=high",
+      "acceptance": "no high or critical vulnerability and no credential finding in the release bundle",
+      "status": "REQUIRED_AT_RELEASE"
+    },
+    {
+      "id": "MANUAL-001",
+      "severity": "SEV-1",
+      "title": "MCP Inspector interoperability evidence",
+      "execution": "manual",
+      "procedure_ref": "docs/evals/submission-test-cases.md#manual-gates",
+      "acceptance": "initialize, tools/list, public list_models, protected auth challenge, quote, confirm, generate, and get_job evidence captured without exposing secrets",
+      "status": "PENDING_MANUAL_EXECUTION"
+    },
+    {
+      "id": "MANUAL-002",
+      "severity": "SEV-1",
+      "title": "API Playground protocol and schema evidence",
+      "execution": "manual",
+      "procedure_ref": "docs/evals/submission-test-cases.md#manual-gates",
+      "acceptance": "HTTP status, JSON-RPC envelope, schemas, annotations, auth boundary, and error mapping recorded against the deployed HTTPS endpoint",
+      "status": "PENDING_MANUAL_EXECUTION"
+    },
+    {
+      "id": "MANUAL-003",
+      "severity": "SEV-0",
+      "title": "ChatGPT developer-mode connection evidence",
+      "execution": "manual",
+      "procedure_ref": "docs/evals/submission-test-cases.md#manual-gates",
+      "acceptance": "plugin connects through public HTTPS OAuth metadata and completes a zero-credit sandbox generation or approved provider test",
+      "status": "PENDING_MANUAL_EXECUTION"
+    },
+    {
+      "id": "EXTERNAL-001",
+      "severity": "SEV-0",
+      "title": "Varoriya OAuth-to-REST sandbox contract validation",
+      "execution": "external",
+      "acceptance": "real provider OAuth token, quote, upload, generation, polling, and ownership behavior verified in an approved sandbox",
+      "status": "PENDING_EXTERNAL_VALIDATION"
+    },
+    {
+      "id": "HUMAN-001",
+      "severity": "SEV-0",
+      "title": "Security, privacy, terms, and directory submission approval",
+      "execution": "human",
+      "acceptance": "authorized reviewer signs evidence, risk acceptance, privacy/terms URLs, rollback plan, and directory submission decision",
+      "status": "PENDING_HUMAN_APPROVAL"
+    }
+  ]
+}
